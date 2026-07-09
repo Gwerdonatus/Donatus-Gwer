@@ -764,6 +764,898 @@ GET    /api/v1/risk/actors/{actor_id}/       Actor risk profile (human or AI)
   },
 
   // ============================================================
+  // SENTINEL SERIES — Phase 4 (Investigation & Dashboard)
+  // ============================================================
+
+
+  {
+    slug: "sentinel-investigation-problem",
+    title: "The Investigation Problem: Why Security Events Mean Nothing Without Context",
+    description:
+      "Phases 1 through 3 built a system that can record every action, score every event for risk, and fire an alert within seconds. Phase 4 is about what happens next.",
+    date: "2025-02-26",
+    readingTime: 12,
+    tags: ["Sentinel", "Security Engineering", "Investigation", "Dashboard", "AI Security"],
+    category: "Security Engineering",
+    featured: true,
+    content: `
+# The Investigation Problem: Why Security Events Mean Nothing Without Context
+
+*This is the fifth post in the Sentinel series. Previous: [Building Sentinel: Risk Intelligence & AI Actor Tracking](#).*
+
+Phases 1 through 3 built a system that can record every action, score every event for risk, and fire an alert within seconds of something anomalous happening.
+
+Phase 4 is about what happens next.
+
+An alert fires. A security analyst gets a Slack message at 11:47pm: "High Risk AI Agent Action — support-bot-v2, score 73, resource_type: transaction_history." They open their laptop. Now what?
+
+This is the investigation problem. It's less glamorous than the risk scoring algorithm, and it gets less attention in security tooling conversations. But it's the thing that determines whether your security infrastructure is actually useful or just a source of noise that eventually gets muted.
+
+---
+
+## What a Useful Investigation Actually Requires
+
+When that alert fires, the analyst needs to answer a sequence of questions, each of which depends on the answer to the previous one:
+
+**What exactly happened?** Not "a risk signal fired." The specific event: which action, on which resource, at what time, with what context in the metadata.
+
+**Is this actually unusual for this actor?** A support bot that routinely accesses transaction data as part of a legitimate daily report would have a baseline that makes a 10x volume spike meaningful. The same 10x spike from a bot that never normally touches transaction data is a different severity entirely. You cannot answer this question without seeing the actor's history.
+
+**How long has this been happening?** A single anomalous event is different from a pattern that started three days ago and has been escalating. The investigation needs the full timeline, not the triggering event in isolation.
+
+**What else happened around the same time?** An AI agent accessing unusual data is more concerning if, in the same window, a human user with admin privileges logged in from an unusual location. Correlation across actors requires seeing multiple timelines together.
+
+**What was the resolution last time this actor triggered an alert?** If this same agent triggered a similar alert six weeks ago and it was resolved as a false positive from a legitimate configuration change, that context matters. If it was resolved as a genuine incident, that matters even more.
+
+None of these questions can be answered by looking at a list of events in isolation. They require a view that reconstructs a coherent narrative from raw records.
+
+---
+
+## The Token Storage Problem Nobody Wants to Talk About
+
+Before you can investigate anything, your security team needs to actually log in to the investigation tool. And how authentication tokens are stored in a dashboard directly affects the security of everything that dashboard can access.
+
+This comes up constantly in fintech security tooling and it's usually handled badly.
+
+The common pattern — store the JWT in \`localStorage\`, read it on every request from client-side JavaScript — is a straightforward XSS attack surface. A single vulnerable dependency or injected script anywhere in the application can read the token directly. For a security investigation tool sitting on top of a full audit ledger and live risk data, that's an unacceptable exposure.
+
+The correct pattern is httpOnly cookies set by a server-side handler, where the token is never accessible to JavaScript at all. The browser sends the cookie automatically on every request. An XSS attack cannot read it. The tradeoff is slightly more architecture: a backend-for-frontend layer that attaches the token server-side before forwarding requests to the actual API.
+
+For a product called Sentinel, building it the insecure way would undermine the entire point.
+
+---
+
+## What Compliance Reports Actually Need to Show
+
+The third problem Phase 4 needed to solve was compliance reporting — and the specific gap that Sentinel can fill that generic audit export tools cannot.
+
+Every organization dealing with financial regulators eventually needs to produce evidence of what happened. PCI-DSS requires evidence of access to cardholder data. SOC 2 requires evidence of access controls, changes to user permissions, and administrative actions. The standard approach is to export the raw audit log in some format and let the auditor figure it out.
+
+The problem with this approach has gotten worse in the AI era. A raw event log that says "customer data was accessed 47,000 times in Q3" leaves the auditor with a legitimate question: was that 47,000 human accesses? 47,000 automated service calls? 47,000 AI agent requests?
+
+The answer matters for the risk assessment. Automated batch processes accessing data in a predictable pattern are different from human users accessing the same data individually. AI agents accessing data in response to natural language queries are different again — their access patterns are harder to predict, their scope of access depends on how the prompts are constructed, and a single compromised prompt can produce access patterns that look nothing like the baseline.
+
+A compliance report that shows this breakdown — human access by named user, service access by service name, AI agent access by agent name and model version — provides substantially more assurance than a raw count. It also makes anomalies visible: if Q3 had 200 accesses from a specific AI agent in July and August and 47,000 in September, that pattern should appear clearly in the evidence package, not be buried in aggregate numbers.
+
+That's the evidence a regulator actually needs to evaluate whether your AI agents are operating within appropriate scope. And it's what Sentinel's compliance reports produce automatically, without requiring the analyst to build a custom query to extract it.
+
+---
+
+## Why the Dashboard Has to Be Fast
+
+One more thing that rarely gets discussed: investigation speed is itself a security property.
+
+When an alert fires about an AI agent behaving anomalously, the cost of the incident depends heavily on how quickly a human can understand what's happening and make a decision. An investigation that takes three hours of log-digging is three hours in which the problem continues.
+
+This means the dashboard can't be a slow database dump wrapped in a web interface. The actor timeline needs to render in under two seconds. The risk score chart needs to show the trend immediately. The alert list needs to sort and filter client-side without a round trip for every interaction.
+
+These are product design constraints that have direct security consequences. A dashboard that security teams stop using because it's slow is a dashboard that doesn't prevent incidents.
+
+---
+
+## What Phase 4 Builds
+
+Phase 4 is the operational surface: the interface a security team actually uses, built around investigation as the primary user journey.
+
+The anchor view is the actor timeline — any actor (human or AI agent), their complete event history with risk scores plotted over time, their open alerts, and the full detail of any individual event. This is the view that answers "what exactly did this AI agent do between 11pm and midnight."
+
+Built on top of that is the alert inbox — the starting point for any investigation, with filters for severity, status, and actor type that let a team triage at a glance. The compliance report generator that produces AI-attribution-forward evidence packages in PDF, CSV, or JSON format. The AI agents view that shows every registered agent, its behavioral history, and a direct link to its timeline.
+
+And the authentication is built correctly: httpOnly cookies, BFF proxy, automatic silent token refresh. The investigation tool doesn't introduce the vulnerabilities it's supposed to help detect.
+
+Next post: the technical implementation — the BFF authentication pattern in Next.js App Router, how TanStack Query manages the investigation UI state, and what goes into a compliance PDF that an auditor can actually use.
+
+---
+
+*Sentinel is open source: [github.com/Gwerdonatus/Sentinel](https://github.com/Gwerdonatus/Sentinel)*
+    `,
+  },
+
+  {
+    slug: "sentinel-phase-4-dashboard",
+    title: "Building Sentinel: Dashboard & Compliance Reports",
+    description:
+      "Phase 4 converts Sentinel from an API into a product — the dashboard a security team actually uses to investigate incidents.",
+    date: "2025-03-05",
+    readingTime: 20,
+    tags: ["Sentinel", "Django", "Next.js", "Dashboard", "Compliance", "BFF", "TanStack Query"],
+    category: "Security Engineering",
+    featured: true,
+    content: `
+# Building Sentinel: Dashboard & Compliance Reports
+
+*Technical companion to [The Investigation Problem](#). Read that first.*
+
+Phase 4 converts Sentinel from an API into a product — the dashboard a security team actually uses to investigate incidents. Three things had to be built correctly: authentication that doesn't undermine the platform's own security guarantees, a UI architecture that makes investigation fast enough to be useful, and compliance reports that show AI actor attribution as the headline, not a footnote.
+
+Code: [github.com/Gwerdonatus/Sentinel](https://github.com/Gwerdonatus/Sentinel) — tagged \`v0.4.0\`.
+
+---
+
+## Authentication: The Backend-for-Frontend Pattern
+
+The problem with standard SPA JWT storage was laid out in the previous post. The implementation decision: httpOnly cookies set and read exclusively by Next.js Route Handlers — the browser never touches the token, no JavaScript can read it, XSS is not a token exfiltration path.
+
+The architecture has three layers:
+
+\`\`\`
+Browser (no tokens)
+    ↓ /api/internal/auth/login (POST email+password)
+Next.js Route Handler (sets httpOnly cookies)
+    ↓ /api/v1/auth/login/ (Bearer token internally)
+Django Backend (issues JWT pair)
+\`\`\`
+
+The login route handler:
+
+\`\`\`typescript
+// /api/internal/auth/login/route.ts
+
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+
+  const backendResponse = await fetch(\`\${BACKEND_URL}/api/v1/auth/login/\`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const data = await backendResponse.json();
+  if (!backendResponse.ok) {
+    return NextResponse.json(data, { status: backendResponse.status });
+  }
+
+  // Return ONLY the user object to the client — never the tokens themselves
+  const response = NextResponse.json({ user: data.user });
+
+  response.cookies.set("sentinel_access", data.access, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 15 * 60, // matches JWT_ACCESS_TOKEN_LIFETIME_MINUTES
+  });
+  response.cookies.set("sentinel_refresh", data.refresh, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 7 * 24 * 60 * 60, // matches JWT_REFRESH_TOKEN_LIFETIME_DAYS
+  });
+
+  return response;
+}
+\`\`\`
+
+The client context stores only the user object, not any credential:
+
+\`\`\`typescript
+// AuthProvider — no token state anywhere
+const [user, setUser] = useState<User | null>(null);
+
+useEffect(() => {
+  fetch("/api/internal/auth/session")
+    .then(r => r.json())
+    .then(data => setUser(data.user ?? null));
+}, []);
+\`\`\`
+
+### The Proxy Route with Silent Refresh
+
+Every API call from the dashboard goes through a catch-all proxy route that reads the access token cookie server-side, attaches it as a Bearer header, and forwards the request to Django:
+
+\`\`\`typescript
+// /api/internal/proxy/[...path]/route.ts
+
+async function handler(request: NextRequest, { params }) {
+  const { path } = await params;
+  const accessToken = request.cookies.get("sentinel_access")?.value;
+  const refreshToken = request.cookies.get("sentinel_refresh")?.value;
+
+  if (!accessToken) {
+    return NextResponse.json({ error: { code: "no_session" } }, { status: 401 });
+  }
+
+  let backendResponse = await forwardRequest(request, path, accessToken);
+
+  // 401 from backend = expired access token — try silent refresh
+  if (backendResponse.status === 401 && refreshToken) {
+    const newAccessToken = await refreshAccessToken(refreshToken);
+
+    if (newAccessToken) {
+      backendResponse = await forwardRequest(request, path, newAccessToken);
+      const response = new NextResponse(await backendResponse.text(), {
+        status: backendResponse.status,
+      });
+      // Update the cookie with the new token — transparent to the client
+      response.cookies.set("sentinel_access", newAccessToken, { httpOnly: true, ... });
+      return response;
+    }
+
+    // Refresh token itself expired — clear cookies and signal session end
+    const response = NextResponse.json({ error: { code: "session_expired" } }, { status: 401 });
+    response.cookies.delete("sentinel_access");
+    response.cookies.delete("sentinel_refresh");
+    return response;
+  }
+
+  return new NextResponse(await backendResponse.text(), { status: backendResponse.status });
+}
+\`\`\`
+
+The result: the client component calls \`/api/internal/proxy/alerts\` and gets back alert data. It never knows that a token refresh happened in the middle. The token rotation the backend enforced in Phase 2 works transparently.
+
+The client-side API client is correspondingly simple:
+
+\`\`\`typescript
+// lib/dashboard-api.ts — all it does is call our own proxy
+export const dashboardApi = {
+  get: <T>(path: string, options?: RequestOptions) =>
+    request<T>("GET", path, undefined, options),
+  post: <T>(path: string, body?: unknown) =>
+    request<T>("POST", path, body),
+};
+\`\`\`
+
+---
+
+## TanStack Query: No fetch-in-useEffect Anywhere
+
+Eight views, each with multiple data sources. Without a state management layer, this becomes eight versions of the same \`useEffect\`/\`useState\`/\`isLoading\` pattern, each slightly different, none cancelling inflight requests, all re-fetching on every mount.
+
+TanStack Query eliminates this entirely. Every data source is a typed query with consistent semantics:
+
+\`\`\`typescript
+// hooks/use-sentinel-data.ts
+
+export function useRiskSummary() {
+  return useQuery({
+    queryKey: queryKeys.riskSummary,
+    queryFn: () => dashboardApi.get<RiskSummary>("risk/summary"),
+    staleTime: 30_000,
+    refetchInterval: 60_000, // Live operational data — auto-refresh every minute
+  });
+}
+
+export function useActorRiskProfile(actorId: string) {
+  return useQuery({
+    queryKey: queryKeys.actorProfile(actorId),
+    queryFn: () => dashboardApi.get<ActorRiskProfile>(\`risk/actors/\${actorId}\`),
+    staleTime: 60_000,
+    enabled: !!actorId,
+  });
+}
+
+export function useComplianceReport(id: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.complianceReport(id),
+    queryFn: () => dashboardApi.get<ComplianceReport>(\`compliance/reports/\${id}\`),
+    refetchInterval: (query) => {
+      // Poll every 5s while the report is generating, stop when done
+      const status = query.state.data?.status;
+      return (status === "pending" || status === "generating") ? 5_000 : false;
+    },
+    enabled: !!id && enabled,
+  });
+}
+\`\`\`
+
+Stale times are tuned per data type — not a global setting:
+
+| Data | Stale Time | Reason |
+|---|---|---|
+| Risk summary | 30s | Live operational — stale data misses active incidents |
+| Alerts | 60s | Actioned items — second or two of lag is fine |
+| Audit events | 2min | Historical — doesn't change |
+| Actor profile | 60s | Derived from events — changes slowly |
+| Compliance reports | 10s | Polling while generating |
+
+Mutations update the cache optimistically via \`setQueryData\` and invalidate the broader list:
+
+\`\`\`typescript
+export function useAcknowledgeAlert() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (alertId: string) =>
+      dashboardApi.post<AlertDetail>(\`alerts/\${alertId}/acknowledge\`),
+    onSuccess: (data) => {
+      client.setQueryData(queryKeys.alertDetail(data.id), data);
+      client.invalidateQueries({ queryKey: ["alerts"] });
+    },
+  });
+}
+\`\`\`
+
+The analyst clicks "Acknowledge" in the alert inbox. The row updates immediately. The alert detail view is also updated. No page reload.
+
+---
+
+## The Actor Timeline: The Investigation View
+
+The most important page in the dashboard is not the overview. It's \`/actors/[id]\` — the view that answers "what did this actor do."
+
+It combines three data sources:
+
+\`\`\`typescript
+// Actor timeline — server fetches in parallel via TanStack Query
+const { data: profile } = useActorRiskProfile(actorId);
+const { data: eventsPage } = useAuditEvents({ actor_id: actorId });
+\`\`\`
+
+The risk score history renders in Recharts — a simple line chart with the last N scored events:
+
+\`\`\`typescript
+const chartData = profile.recent_events
+  .filter(e => e.risk_score !== null)
+  .map(e => ({
+    time: format(new Date(e.created_at), "HH:mm"),
+    score: e.risk_score,
+  }))
+  .reverse(); // Chronological order for the chart
+
+<LineChart data={chartData}>
+  <YAxis domain={[0, 100]} />
+  <Line type="monotone" dataKey="score" stroke="#6366f1" strokeWidth={2} />
+  <Tooltip contentStyle={{ background: "#111827", ... }} />
+</LineChart>
+\`\`\`
+
+Below the chart: the full event log, paginated, with timestamps, event types, resource identifiers, and risk scores rendered as color-coded badges. The analyst can scan the timeline the way you'd read a court transcript — sequentially, with risk context on every line.
+
+This view works identically for a human user (\`actor_id\` from their User record) and an AI agent (\`actor_id\` from their API key). The actor type label at the top changes; the investigation experience is the same.
+
+---
+
+## Compliance Reports: AI Attribution as the Headline
+
+The compliance report service on the backend generates in three formats. The PDF is the one that matters for actual audits — it's what gets attached to a SOC 2 evidence package.
+
+The key design decision: actor type breakdown is the first section after the header, not buried in appendices:
+
+\`\`\`python
+# services.py — summary built before rendering
+def _build_summary(self, events: QuerySet) -> dict:
+    by_actor_type = dict(
+        events.values("actor_type")
+        .annotate(count=Count("id"))
+        .values_list("actor_type", "count")
+    )
+
+    # The AI-attribution-forward section
+    ai_agents = list(
+        events.exclude(agent_name="")
+        .filter(actor_type="AI_AGENT")
+        .values("agent_name")
+        .annotate(event_count=Count("id"))
+        .order_by("-event_count")
+    )
+
+    return {
+        "total_events": events.count(),
+        "by_actor_type": by_actor_type,       # {"HUMAN": 1240, "AI_AGENT": 8903, "SERVICE": 445}
+        "ai_agents_involved": ai_agents,       # [{"agent_name": "support-bot-v2", "event_count": 8903}]
+        "high_risk_event_count": events.filter(risk_score__gte=50).count(),
+    }
+\`\`\`
+
+In the PDF, this renders as the first table after the header — "Activity by Actor Type" — followed immediately by "AI Agents Involved" if any AI agent events occurred in the period. An auditor opening the PDF sees within five seconds whether AI agents were active and which ones.
+
+The report generation is async — Celery task with a 10-minute time limit for large datasets. The dashboard polls the report status every 5 seconds using the same TanStack Query \`refetchInterval\` pattern:
+
+\`\`\`typescript
+// Compliance page — live polling card
+const { data: report } = useComplianceReport(pollingId);
+
+// TanStack Query stops polling automatically when status changes
+refetchInterval: (query) => {
+  const status = query.state.data?.status;
+  if (status === "pending" || status === "generating") return 5_000;
+  return false; // Stop polling — download link appears
+},
+\`\`\`
+
+The analyst requests a report, sees a spinner card, and within seconds to minutes (depending on the date range) the card flips to a green "Ready — Download" state. The download link hits the Django backend directly through the BFF proxy, which returns the file as a \`FileResponse\` with the correct \`Content-Disposition\` header.
+
+---
+
+## Current Full API + Dashboard Surface
+
+**Backend:**
+\`\`\`
+# Auth (Phase 2)
+POST   /api/v1/auth/register/
+POST   /api/v1/auth/login/
+POST   /api/v1/auth/refresh/
+POST   /api/v1/auth/logout/
+GET    /api/v1/auth/me/
+POST   /api/v1/auth/me/password/
+
+# Audit (Phase 2)
+POST/GET  /api/v1/events/ingest/
+GET       /api/v1/events/
+GET       /api/v1/events/{id}/
+GET       /api/v1/events/{id}/verify/
+
+# Risk & Alerts (Phase 3)
+GET/POST  /api/v1/alerts/
+GET/POST  /api/v1/alerts/rules/
+DELETE    /api/v1/alerts/rules/{id}/
+GET       /api/v1/alerts/{id}/
+POST      /api/v1/alerts/{id}/acknowledge/
+POST      /api/v1/alerts/{id}/resolve/
+GET       /api/v1/risk/summary/
+GET       /api/v1/risk/actors/{actor_id}/
+
+# API Keys (Phase 3)
+GET       /api/v1/api-keys/
+POST      /api/v1/api-keys/create/
+GET/DELETE /api/v1/api-keys/{id}/
+
+# Compliance (Phase 4)
+GET/POST  /api/v1/compliance/reports/
+GET       /api/v1/compliance/reports/{id}/
+GET       /api/v1/compliance/reports/{id}/download/
+\`\`\`
+
+**Dashboard:**
+\`\`\`
+/login              Auth form (httpOnly cookie BFF)
+/dashboard          Overview: risk stats, open alerts, top risky AI agents
+/alerts             Alert inbox: filters, ack/resolve inline
+/actors/[id]        Actor timeline: risk chart + full event log
+/ai-agents          Registered AI agents + recent activity
+/api-keys           Key management: create (AI agent + service), revoke
+/compliance         Report request, polling card, download
+\`\`\`
+
+---
+
+## What's Next
+
+Phase 5 is multi-tenancy and Kafka — the infrastructure that takes Sentinel from a single-organization deployment to a shared platform, and from synchronous risk scoring to event-driven stream processing.
+
+The architecture designed in Phase 1 (service/repository separation, abstracted task interfaces, cursor-based pagination, no hardcoded assumptions about single-tenant operation) was built to support this. Adding tenant isolation at the row level, replacing Celery's Redis broker with Kafka topics, and deploying to Kubernetes are all additive changes — not rewrites.
+
+---
+
+*Star the repo: [github.com/Gwerdonatus/Sentinel](https://github.com/Gwerdonatus/Sentinel)*
+
+*v0.4.0 tagged. Phase 5 in progress.*
+    `,
+  },
+
+  // ============================================================
+  // SENTINEL SERIES — Phase 6 (Operational Envelope & Infrastructure)
+  // ============================================================
+
+
+  {
+    slug: "sentinel-operational-envelope",
+    title: "The Operational Envelope: Why Good Code Isn't Enough",
+    description:
+      "At some point in building a platform, you hit a wall that has nothing to do with features. The code works. The tests pass. But can it actually be operated?",
+    date: "2025-04-02",
+    readingTime: 11,
+    tags: ["Sentinel", "DevOps", "Kubernetes", "Production Readiness", "Operations", "Observability"],
+    category: "Security Engineering",
+    featured: true,
+    content: `
+# The Operational Envelope: Why Good Code Isn't Enough
+
+*This is the ninth post in the Sentinel series. Previous: [Building Sentinel: Kafka, Multi-tenancy & Python SDK](#).*
+
+At some point in building a platform, you hit a wall that has nothing to do with features.
+
+The code works. The tests pass. The architecture is sound. But the question of whether the system can actually be operated — deployed reliably, monitored effectively, recovered from when things go wrong — remains open.
+
+This is the operational envelope problem. It's the gap between software that works in development and software that can be trusted in production.
+
+Sentinel reached that wall after Phase 5. The core capabilities were complete: audit ledger, risk intelligence, AI actor tracking, dashboard, compliance reports, multi-tenancy, Kafka streaming, SDK. But answering "is this production-ready?" honestly required more than checking the feature list.
+
+---
+
+## The Three Questions Production Readiness Requires
+
+There are exactly three questions that determine whether a system is production-ready, and they're not about the code:
+
+**Can it be deployed reliably, repeatedly, by anyone on the team?**
+
+"Works when I deploy it" is not the same as "reliable deployment." Reliable deployment means a documented, automated process that produces the same result every time. It means zero-downtime rolling updates so a new deployment doesn't cause the very incidents Sentinel is designed to detect. It means image digest pinning — not \`image: backend:latest\` which silently changes under you — but \`image: backend@sha256:abc123\` so you know exactly which code is running.
+
+It means the deployment process is testable against staging before production sees it, with a manual gate that forces a human decision before the production environment is touched.
+
+**Can you tell, at any moment, whether the system is healthy?**
+
+Not just "is the server running" — that's the liveness probe, which is table stakes. Real health monitoring means knowing: is the event ingestion pipeline within SLA? Is the risk engine scoring in time to matter? Is the Kafka consumer keeping up, or is it falling 1000 events behind and providing stale risk scores? Are we using 85% of Redis memory and approaching the point where JWT blacklist entries and Celery task queues start competing for space?
+
+These are specific, measurable thresholds. Prometheus can watch all of them and fire alerts when they cross. But only if someone has written the alerting rules, which means deciding what the thresholds should be and documenting why.
+
+**When something goes wrong, can someone fix it?**
+
+Not "can you fix it" — you know the system, you built it. Can someone fix it at 2am when you're offline? Can a new engineer who joined last month fix it?
+
+This requires runbooks. Specific, step-by-step documentation that starts from the alert that fired and ends with the system restored. The commands to run. The things to check in order. The escalation path when the runbook doesn't resolve it.
+
+Writing runbooks also forces a kind of discipline: you can only write a runbook for a failure mode you've thought through. The act of writing them surfaces gaps in the operational design before they become incidents.
+
+---
+
+## The Kubernetes Question
+
+Kubernetes is often presented as an infrastructure choice — a way to run containers at scale. It's more accurate to think of it as an operational contract.
+
+When you define a Deployment with \`maxUnavailable: 0\`, you're making a commitment: deployments will never take the service down. When you define an HPA, you're making a commitment: the system will scale automatically when load increases, without human intervention. When you define a \`terminationGracePeriodSeconds: 120\` on the worker, you're making a commitment: in-flight tasks will complete before the pod is forcibly terminated.
+
+These are not performance optimizations. They're reliability guarantees expressed as infrastructure configuration.
+
+The Kafka consumer deployment uses \`strategy: Recreate\` instead of \`RollingUpdate\`. This is a specific operational decision: during a rolling update, two consumer instances would be running simultaneously, both claiming partitions. Kafka's rebalancing protocol would re-assign partitions between them mid-deploy, which can cause duplicate processing or missed offset commits depending on timing. \`Recreate\` terminates the old pod before starting the new one. Deployment takes slightly longer, but the partition assignment is clean.
+
+Every one of these decisions represents a trade-off that's documented in the deployment manifests. The manifests are the documentation.
+
+---
+
+## The Alerting vs. Application Alerts Distinction
+
+Sentinel has its own alert system: the \`AlertRule\` model that evaluates conditions against audit events and fires application-level alerts when risk thresholds are crossed.
+
+But those alerts are about the *data* Sentinel is watching. They don't tell you anything about whether Sentinel itself is healthy.
+
+That's what Prometheus alerting rules are for. Two separate alert paths, serving different purposes:
+
+The application alerts ask: "Is something suspicious happening in our financial systems?" They fire when \`risk_score > 75\` or when an AI agent accesses a new resource type or when an admin action happens at 3am. They're stored in PostgreSQL and delivered via Slack and email.
+
+The infrastructure alerts ask: "Is Sentinel itself working correctly?" They fire when the event ingest p99 latency exceeds 500ms, or when the Kafka consumer falls 1000 events behind real time, or when the API error rate exceeds 1% for five minutes. They go to Alertmanager, then PagerDuty, then someone's phone.
+
+Conflating these two would be a mistake that surfaces in exactly the wrong moment: when Sentinel is experiencing issues, you want the infrastructure alerts to fire independently of whether the application alert system is working.
+
+---
+
+## What This Phase Completes
+
+After Phase 6, Sentinel has a complete operational story alongside its technical one:
+
+- Automated deployment from a \`git push\` to production, with a staging gate and manual approval
+- Zero-downtime rolling updates with liveness and readiness probes that prevent unhealthy pods from receiving traffic
+- Horizontal autoscaling on CPU and memory metrics
+- Ten Prometheus alerting rules covering every significant failure mode, with SLA thresholds documented in the rule expressions themselves
+- Three operational runbooks covering the most common on-call scenarios
+- Image digest pinning so every production deployment is traceable to an exact code commit
+
+The next post covers the technical implementation — the Kustomize base/overlay pattern, the CD pipeline's image digest pinning approach, and the alerting rule design that watches Sentinel's own health metrics.
+
+---
+
+*Sentinel is open source: [github.com/Gwerdonatus/Sentinel](https://github.com/Gwerdonatus/Sentinel)*
+    `,
+  },
+
+  {
+    slug: "sentinel-phase-6-infrastructure",
+    title: "Building Sentinel: Kubernetes, Alerting & CD Pipeline",
+    description:
+      "Phase 6 is the infrastructure that makes Sentinel trustworthy in production. Kubernetes manifests, Prometheus alerting rules, and a CD pipeline that deploys reliably.",
+    date: "2025-04-09",
+    readingTime: 17,
+    tags: ["Sentinel", "Kubernetes", "Prometheus", "CI/CD", "DevOps", "Infrastructure", "Kustomize"],
+    category: "Security Engineering",
+    featured: true,
+    content: `
+# Building Sentinel: Kubernetes, Alerting & CD Pipeline
+
+*Technical companion to [The Operational Envelope](#). Read that first.*
+
+Phase 6 is the infrastructure that makes Sentinel trustworthy in production. Three components: Kubernetes manifests that express operational commitments as code, Prometheus alerting rules that watch Sentinel's own health, and a CD pipeline that deploys reliably with zero manual steps outside of the production approval gate.
+
+Code: [github.com/Gwerdonatus/Sentinel](https://github.com/Gwerdonatus/Sentinel) — tagged \`v0.6.0\`.
+
+---
+
+## Kubernetes: Kustomize Base/Overlay Pattern
+
+We use Kustomize rather than raw Helm charts. Kustomize is simpler for a platform that owns its own manifests — no template syntax to learn, no values files to manage, patches are explicit and readable.
+
+Structure:
+
+\`\`\`
+infra/kubernetes/
+├── base/
+│   ├── namespace.yaml
+│   ├── configmap.yaml
+│   ├── deployment-api.yaml
+│   ├── deployment-worker.yaml
+│   ├── services.yaml        # Service, HPA, Ingress, ServiceAccounts
+│   └── kustomization.yaml
+└── overlays/
+    ├── production/          # 5 replicas, tighter resource limits
+    └── staging/             # 1 replica each, DEBUG logging
+\`\`\`
+
+The base defines the contract. Overlays patch specific values:
+
+\`\`\`yaml
+# overlays/production/kustomization.yaml
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 5
+    target:
+      kind: Deployment
+      name: sentinel-api
+\`\`\`
+
+This is the cleanest way to manage environment differences — the base is the single source of truth, overlays are minimal diffs. \`kubectl apply -k infra/kubernetes/overlays/production\` is the entire production deployment command.
+
+---
+
+## Zero-Downtime: The maxUnavailable: 0 Contract
+
+The API deployment rolling update strategy:
+
+\`\`\`yaml
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1          # One extra pod during the update
+    maxUnavailable: 0    # Never fewer than the desired replica count
+\`\`\`
+
+\`maxUnavailable: 0\` means Kubernetes will never terminate an old pod until a new pod is healthy. The readiness probe must pass before the new pod receives traffic:
+
+\`\`\`yaml
+readinessProbe:
+  httpGet:
+    path: /health/ready/
+    port: http
+  initialDelaySeconds: 15
+  periodSeconds: 5
+  failureThreshold: 2   # Two consecutive failures pulls the pod from rotation
+\`\`\`
+
+\`/health/ready/\` checks PostgreSQL and Redis. A pod that has started but can't reach its dependencies never enters the load balancer rotation — it fails the readiness probe and Kubernetes keeps routing traffic to the existing healthy pods.
+
+The startup probe handles slow initial startup separately from the liveness probe:
+
+\`\`\`yaml
+startupProbe:
+  httpGet:
+    path: /health/live/
+    port: http
+  failureThreshold: 30   # 30 × 10s = 5 minutes max startup time
+  periodSeconds: 10
+\`\`\`
+
+This prevents the liveness probe from killing a pod that's legitimately still starting (running migrations, warming caches) by giving it up to 5 minutes before the liveness probe takes over.
+
+---
+
+## The Kafka Consumer Deployment Decision
+
+Every other deployment uses \`RollingUpdate\`. The Kafka consumer uses \`Recreate\`:
+
+\`\`\`yaml
+# deployment-worker.yaml (kafka-consumer section)
+strategy:
+  type: Recreate    # Not RollingUpdate
+\`\`\`
+
+The reason: Kafka partitions can only be assigned to one consumer in a group at a time. During a rolling update with two consumer instances running simultaneously, Kafka triggers a partition rebalance. While rebalancing, no consumer is processing messages from the affected partitions — there's a pause. Depending on timing, the same message could be picked up by both the old and new instance before the rebalance completes.
+
+\`Recreate\` terminates the old pod completely before starting the new one. There's a brief gap where no consumer is running (usually 10–30 seconds). Events accumulate in Kafka during this gap. The new consumer starts, claims all partitions, and processes from the last committed offset. No duplicate processing, no ambiguous partition state.
+
+This is a deliberate latency-for-correctness trade-off, and it's the right one for a consumer that drives risk scoring. A 30-second gap in risk scoring is visible in the Kafka lag metric. A double-processed event producing two different risk scores for the same event ID is subtle and hard to detect.
+
+The \`terminationGracePeriodSeconds: 60\` gives the consumer enough time to finish processing the current message and commit its offset before Kubernetes sends SIGKILL:
+
+\`\`\`python
+# consumer.py — SIGTERM handler
+def _handle_shutdown(self, signum, frame):
+    self._running = False
+    # The while loop exits on next poll() iteration
+    # consumer.close() is called in the finally block
+\`\`\`
+
+SIGTERM → \`_running = False\` → current message finishes → offset committed → \`consumer.close()\` → pod terminates cleanly.
+
+---
+
+## Security Context: Minimal Privilege
+
+Every pod runs with the minimum privilege required:
+
+\`\`\`yaml
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+\`\`\`
+
+\`readOnlyRootFilesystem: true\` is the most operationally significant one. It means an attacker who achieves code execution in the container cannot write to the filesystem — no dropping binaries, no modifying config files. The only writable paths are explicitly mounted \`emptyDir\` volumes:
+
+\`\`\`yaml
+volumeMounts:
+  - name: tmp
+    mountPath: /tmp
+  - name: staticfiles
+    mountPath: /app/staticfiles
+volumes:
+  - name: tmp
+    emptyDir: {}
+\`\`\`
+
+ServiceAccounts have \`automountServiceAccountToken: false\` — the pod doesn't get a Kubernetes API token it doesn't need, which removes an entire attack vector if the container is compromised.
+
+---
+
+## Prometheus Alerting: Two Alert Paths
+
+This was the key architectural distinction from Phase 3. Sentinel has two independent alert systems serving different purposes:
+
+**Application alerts** (Phase 3 \`AlertRule\` model):
+- Watches audit event data for security anomalies
+- Fires when \`risk_score > 75\` or an AI agent scope-creeps
+- Delivered via Slack/email/webhook to security teams
+- Stored in PostgreSQL — queryable in investigations
+
+**Infrastructure alerts** (Prometheus rules):
+- Watches Sentinel itself for operational health
+- Fires when SLA thresholds are breached or components fail
+- Routed via Alertmanager to PagerDuty/on-call rotation
+- Independent of PostgreSQL — works even if the DB is down
+
+The SLA thresholds are embedded in the rule expressions themselves, making them documentation:
+
+\`\`\`yaml
+- alert: SentinelAPIHighLatency
+  expr: |
+    histogram_quantile(0.99,
+      rate(django_http_requests_latency_seconds_by_view_method_bucket{
+        job="sentinel-backend",
+        view=~".*ingest.*"
+      }[5m])
+    ) > 0.5
+  for: 5m
+  labels:
+    severity: high
+    sla: event_ingestion_p99
+  annotations:
+    summary: "Sentinel event ingestion p99 latency exceeds 500ms"
+\`\`\`
+
+The \`sla: event_ingestion_p99\` label makes this alert queryable as SLA evidence — Prometheus can report on how many times this alert fired in Q3, which is directly usable in compliance conversations.
+
+The \`for: 5m\` prevents alert fatigue from transient spikes. A single slow request doesn't page anyone. Sustained elevated latency does.
+
+The Kafka consumer lag rules watch the consumer group directly:
+
+\`\`\`yaml
+- alert: SentinelKafkaConsumerLagHigh
+  expr: |
+    kafka_consumergroup_lag{
+      consumergroup=~"sentinel-risk-engine-.*"
+    } > 1000
+  for: 5m
+  labels:
+    severity: high
+    component: kafka-consumer
+\`\`\`
+
+This fires if the risk engine is more than 1000 events behind real time for 5 consecutive minutes. The runbook linked in the annotations tells the on-call engineer exactly what to check and in what order.
+
+---
+
+## CD Pipeline: Image Digest Pinning
+
+The CD pipeline's most important detail is not the deployment step — it's how images are referenced.
+
+In the base manifests:
+\`\`\`yaml
+image: ghcr.io/gwerdonatus/sentinel-backend:latest
+\`\`\`
+
+In every deployment, the pipeline replaces this with the content-addressed digest:
+
+\`\`\`bash
+# In the CD pipeline
+BACKEND_DIGEST="\${{ needs.build.outputs.digest }}"
+sed -i "s|sentinel-backend:latest|sentinel-backend@\${BACKEND_DIGEST}|g" \\
+  infra/kubernetes/overlays/production/kustomization.yaml
+\`\`\`
+
+The result in production:
+\`\`\`yaml
+image: ghcr.io/gwerdonatus/sentinel-backend@sha256:a3b8c2d...
+\`\`\`
+
+This is the difference between "we deployed the latest build" and "we deployed commit \`abc123\` and can prove it." The digest is immutable — \`sha256:a3b8c2d...\` will always refer to exactly the same image layers. If you need to investigate what code was running during an incident, \`git log\` plus the image digest gives you a complete, verifiable answer.
+
+The pipeline flow:
+
+\`\`\`
+push to main
+    │
+    ▼
+build job — multi-arch (amd64 + arm64), push to GHCR
+    │ outputs: backend-digest, frontend-digest
+    ▼
+deploy-staging — apply kustomize overlay with pinned digest
+    │
+    ▼
+smoke tests — health/live/, GET /api/v1/ returns 200
+    │
+    ▼
+deploy-production — requires manual approval (GitHub environment protection)
+    │
+    ▼
+post-deploy health check + git tag
+\`\`\`
+
+The \`environment: production\` block in the workflow requires a reviewer approval before the deploy step runs. This is the manual gate — not an extra check, not a separate approval system, just GitHub's built-in environment protection rules.
+
+---
+
+## Runbooks: Writing for 2am
+
+Three runbooks in \`docs/runbooks/\`:
+
+**\`incident-investigation.md\`** — starts from a fired alert and walks through the investigation steps in order: alert detail → actor timeline → API query → integrity verification → compliance export → escalation matrix. Every command is complete and copy-pasteable.
+
+**\`kafka-consumer-lag.md\`** — diagnosis commands, scaling procedure, bottleneck identification (is it the consumer or the risk engine query performance?), backfill instructions (the answer is: do nothing, Kafka picks up where it left off). Includes the prevention section: set partition count before you need to scale.
+
+**\`deployment-rollback.md\`** — normal deployment verification checklist, \`kubectl rollout undo\`, revision history rollback, and the emergency migration reversal procedure with a prominent warning that it should be tested in staging first.
+
+The test for a good runbook: can a new engineer who has never seen Sentinel execute it successfully without asking for help? If yes, it's done. If not, add more detail.
+
+---
+
+## Current Platform Summary
+
+| Phase | What it delivers | Status |
+|---|---|---|
+| 1 | Foundation: monorepo, Docker, CI, OTel, health endpoints | ✅ |
+| 2 | JWT auth, RBAC, immutable audit ledger, HMAC signing | ✅ |
+| 3 | AI actor identity, risk engine, alert rules, API keys, notifications | ✅ |
+| 4 | Dashboard, BFF auth, actor timeline, compliance reports | ✅ |
+| 5 | Kafka, multi-tenancy, Python SDK | ✅ |
+| 6 | Kubernetes, Prometheus alerting, CD pipeline, runbooks | ✅ |
+
+**17 ADRs. 567 files. 8 blog posts. 10 Prometheus alerting rules. 12 Kubernetes manifests. 3 runbooks. 6 git tags.**
+
+The platform is complete. Every architectural decision is documented. Every operational procedure is written down.
+
+---
+
+*Star the repo: [github.com/Gwerdonatus/Sentinel](https://github.com/Gwerdonatus/Sentinel)*
+
+*v0.6.0 tagged — all phases complete.*
+    `,
+  },
+
+  // ============================================================
   // PROOVA — Revenue Attribution SaaS
   // ============================================================
 
