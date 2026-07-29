@@ -19,6 +19,150 @@ const originalPosts: BlogPost[] = [
     featured: true,
   },
   {
+  slug: "breaking-my-own-crypto-app",
+  title: "Breaking My Own Crypto App Before Anyone Else Can",
+  description:
+    "Before adding a single new feature, I spent weeks trying to make my own application fail. Here's what attacking your own code teaches you that passing tests never will.",
+  date: "2025-07-20",
+  readingTime: 11,
+  tags: ["Security", "Cryptography", "Financial Infrastructure", "Testing", "Concurrency"],
+  category: "Security Engineering",
+  featured: true,
+  content: `
+# Breaking My Own Crypto App Before Anyone Else Can
+
+*Field Note — Crypto Application, Phase 1*
+
+---
+
+I'm currently building the first phase of a crypto application, and before adding more features, I wanted to answer one question:
+
+**"Can I trust the foundation?"**
+
+Instead of only checking whether features worked, I spent time trying to make the application fail. That changed how I think about building financial software.
+
+---
+
+## Passing Tests Isn't Enough
+
+It's satisfying to see a green test suite.
+
+In my case, Phase 1 completed with over **160 automated tests passing**. But financial software doesn't fail because someone clicks the wrong button. It fails because someone discovers an edge case you never imagined.
+
+So I started thinking less like the developer and more like an attacker.
+
+The goal wasn't to prove the app works. The goal was to prove it **refuses to break**. That meant testing things users should never be able to do:
+
+- Attempting to forge authentication tokens
+- Replaying previously valid requests
+- Trying to access another user's resources
+- Launching concurrent transactions against the same balance
+- Attempting direct database modifications
+- Trying to bypass application logic entirely
+
+The interesting part wasn't that these attacks failed. It was understanding **why** they failed. That's where confidence comes from.
+
+---
+
+## Authentication Deserves Paranoia
+
+One area I focused heavily on was authentication.
+
+Authentication is much more than issuing JWTs. You need to know what happens when someone:
+
+- Modifies a token
+- Changes the signing algorithm
+- Reuses refresh tokens
+- Brute-forces a PIN
+- Replays requests
+- Attempts to enumerate resources
+
+Every authentication system has assumptions. Testing is about finding out whether those assumptions survive hostile conditions.
+
+When you issue a token, you're making a promise about identity. When someone breaks that promise, the damage isn't a 500 error — it's unauthorized access to financial data. Testing the boundary of that promise is non-negotiable.
+
+---
+
+## The Database Is Part of Your Security Model
+
+One lesson that stood out during testing is that application code shouldn't be the only layer protecting money.
+
+Business rules can — and should — exist in the database itself.
+
+During testing I deliberately attacked the ledger from the database layer instead of the API. That meant bypassing normal application code completely and asking:
+
+> "What happens if someone reaches the database?"
+
+The database still refused operations that would violate the integrity of the ledger.
+
+That kind of defense-in-depth is incredibly valuable in financial systems. Your application can have bugs. Your API can have holes. But if your database enforces invariants — balance non-negativity, transaction atomicity, foreign key integrity — you have a floor beneath you that doesn't depend on the application being perfect.
+
+---
+
+## The Most Important Bug Wasn't in the Business Logic
+
+Ironically, the biggest issue discovered wasn't a bug in the ledger itself.
+
+It was a **deployment configuration problem**.
+
+Everything passed during normal testing. But running migrations the same way they would run in production exposed a privilege configuration issue that would prevent the ledger from functioning correctly after deployment.
+
+That's exactly why production-like testing matters.
+
+Sometimes the application is correct — but the deployment process isn't. Finding those issues before users do is the whole point. A ledger that works in development but fails after deployment is worse than a ledger that fails in development, because you only find out when real money is at stake.
+
+---
+
+## Concurrency Is Where Finance Gets Interesting
+
+One of my favorite tests involved concurrent requests.
+
+Imagine dozens of withdrawal requests hitting the same balance at nearly the same time.
+
+If your transaction model is weak, money appears from nowhere. If it's correct, exactly one request succeeds when only one should.
+
+Those are the kinds of scenarios I'm intentionally validating before adding more product features.
+
+Concurrency bugs in financial systems don't look like crashes. They look like subtle, invisible drift — balances that are slightly off, transactions that don't quite reconcile, discrepancies that show up months later. The only way to catch them is to create the conditions where they would manifest and verify that the system handles them correctly.
+
+---
+
+## Security Is a Process, Not a Milestone
+
+The audit also highlighted configuration improvements that still need attention.
+
+Things like production transport security, deployment hardening, and operational safeguards aren't "nice-to-have" tasks. They're part of building software people can trust.
+
+Finding these gaps now is far cheaper than discovering them after launch.
+
+There's no finish line for this work. Every feature raises new questions. Every deployment surface is a potential entry point. Security isn't a checkbox you complete in Phase 1 — it's a continuous discipline of asking what you've assumed and whether that assumption still holds.
+
+---
+
+## My Biggest Takeaway
+
+Building crypto products isn't about writing clever code.
+
+It's about **removing assumptions**.
+
+Every feature raises a new question:
+
+- What if this request is replayed?
+- What if two transactions arrive together?
+- What if someone bypasses the API?
+- What happens after deployment instead of during local development?
+- What happens when infrastructure behaves differently than my laptop?
+
+Those questions are becoming just as important as writing the feature itself.
+
+The goal isn't simply to build software that works. The goal is to build software that's **difficult to break**.
+
+---
+
+*As I continue building this project, I'll keep sharing these engineering notes — not because everything is perfect, but because documenting the process is part of becoming a better engineer.*
+  `,
+},
+  {
     slug: "async-python-patterns",
     title: "Async Python Patterns for High-Throughput Systems",
     description: "Exploring concurrency patterns in Python that enable handling thousands of requests per second without breaking a sweat.",
