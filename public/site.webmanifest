@@ -1,0 +1,35 @@
+{
+  "name": "Gwer Donatus — Backend Systems Engineer",
+  "short_name": "Gwer Donatus",
+  "description": "Backend Systems Engineer building AI-powered software that scales.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#d2dec2",
+  "theme_color": "#102d16",
+  "icons": [
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
