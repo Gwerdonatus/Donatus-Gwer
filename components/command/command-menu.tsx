@@ -42,8 +42,8 @@ const navigationItems = [
 ];
 
 const socialItems = [
-  { icon: Github, label: "GitHub", href: "https://github.com" },
-  { icon: Linkedin, label: "LinkedIn", href: "https://linkedin.com" },
+  { icon: Github, label: "GitHub", href: "https://github.com/Gwerdonatus" },
+  { icon: Linkedin, label: "LinkedIn", href: "https://linkedin.com/in/donatus-gwer" },
 ];
 
 export function CommandMenu() {

@@ -93,7 +93,7 @@ const quickLinks = [
 
 const socialLinks = [
   { icon: Github, href: "https://github.com/Gwerdonatus", label: "GitHub" },
-  { icon: Linkedin, href: "https://www.linkedin.com/in/donatus-gwer-857610338", label: "LinkedIn" },
+  { icon: Linkedin, href: "https://linkedin.com/in/donatus-gwer", label: "LinkedIn" },
   { icon: Instagram, href: "https://www.instagram.com/gwerthedev/", label: "Instagram" },
   { icon: Twitter, href: "https://x.com/donatus_gwer", label: "X" },
   { icon: Facebook, href: "https://www.facebook.com/profile.php?id=61590181777793&sk=directory_links", label: "Facebook" },
@@ -242,7 +242,7 @@ export function Footer() {
                 <div className="mt-5 sm:mt-6 space-y-1.5 sm:space-y-2 lg:hidden">
                   {[
                     { label: "GitHub", href: "https://github.com/Gwerdonatus" },
-                    { label: "LinkedIn", href: "https://www.linkedin.com/in/donatus-gwer-857610338" },
+                    { label: "LinkedIn", href: "https://linkedin.com/in/donatus-gwer" },
                     { label: "Instagram", href: "https://www.instagram.com/gwerthedev/" },
                     { label: "X / Twitter", href: "https://x.com/donatus_gwer" },
                     { label: "Facebook", href: "https://www.facebook.com/profile.php?id=61590181777793&sk=directory_links" },

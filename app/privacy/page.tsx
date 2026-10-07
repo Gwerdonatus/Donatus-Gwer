@@ -86,10 +86,10 @@ export default function PrivacyPage() {
               If you have any questions about this privacy policy, please contact
               me at{" "}
               <a
-                href="mailto:hello@gwerdonatus.dev"
+                href="mailto:donatusgwer@gmail.com"
                 className="text-accent hover:text-accent-light transition-colors"
               >
-                hello@gwerdonatus.dev
+                donatusgwer@gmail.com
               </a>
               .
             </p>

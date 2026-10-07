@@ -41,9 +41,9 @@ const navLinks = [
 ];
 
 const socialLinks = [
-  { href: "https://github.com", icon: Github, label: "GitHub" },
-  { href: "https://linkedin.com", icon: Linkedin, label: "LinkedIn" },
-  { href: "mailto:hello@gwerdonatus.dev", icon: Mail, label: "Email" },
+  { href: "https://github.com/Gwerdonatus", icon: Github, label: "GitHub" },
+  { href: "https://linkedin.com/in/donatus-gwer", icon: Linkedin, label: "LinkedIn" },
+  { href: "mailto:donatusgwer@gmail.com", icon: Mail, label: "Email" },
 ];
 
 export function Navbar() {

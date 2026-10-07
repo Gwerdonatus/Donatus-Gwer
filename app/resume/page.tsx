@@ -37,7 +37,7 @@ const resumeData = {
   phone: "+234 811 627 6212",
   github: "github.com/Gwerdonatus",
   linkedin: "linkedin.com/in/donatus-gwer",
-  location: "Abuja, Nigeria · Open to Remote & Relocation",
+  location: "Jos, Plateau State, Nigeria · Open to Remote & Relocation",
   profile: `Backend engineer with 5+ years building payment infrastructure, financial reconciliation systems, and event-driven SaaS platforms. Founder of GITS, a software agency delivering production systems for African and global markets. Designs systems around failure modes first — idempotency, observability, and resilience are not afterthoughts. Works AI-augmented daily: uses LLMs for architecture review, code generation, test coverage, and documentation. Actively targeting senior backend roles at fintech and globally distributed engineering teams.`,
 };
 

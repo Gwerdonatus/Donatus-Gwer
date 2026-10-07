@@ -36,19 +36,19 @@ export function ResumeContent() {
             <div className="flex flex-wrap items-center gap-4 text-sm text-body">
               <span className="inline-flex items-center gap-1.5">
                 <MapPin className="w-4 h-4" />
-                Nigeria
+                Jos, Plateau State, Nigeria
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <Mail className="w-4 h-4" />
-                hello@gwerdonatus.dev
+                donatusgwer@gmail.com
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <Github className="w-4 h-4" />
-                github.com/gwerdonatus
+                github.com/Gwerdonatus
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <Linkedin className="w-4 h-4" />
-                linkedin.com/in/gwerdonatus
+                linkedin.com/in/donatus-gwer
               </span>
             </div>
           </div>

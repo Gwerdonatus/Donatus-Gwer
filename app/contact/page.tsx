@@ -31,7 +31,7 @@ const keypadKeys = [
     iconColor: "#24292e",
   },
   {
-    url: "https://www.linkedin.com/in/donatus-gwer-857610338",
+    url: "https://linkedin.com/in/donatus-gwer",
     icon: Linkedin,
     bg: "#0a66c2",
     side: "#004182",
@@ -98,7 +98,7 @@ const quickInfo = [
   {
     icon: MapPin,
     label: "Location",
-    value: "Abuja, Nigeria",
+    value: "Jos, Plateau State, Nigeria",
     href: null,
   },
   {
